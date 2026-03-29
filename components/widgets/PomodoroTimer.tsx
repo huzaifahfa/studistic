@@ -26,13 +26,14 @@ export default function PomodoroTimer({ onClose, uid }: { onClose: () => void; u
   const [alarmActive, setAlarmActive] = useState(false)
   const nodeRef = useRef<HTMLDivElement>(null)
   const sessionIdRef = useRef<string | null>(null)
+  const alarmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const duration = mode === 'custom' ? customMinutes * 60 : MODES[mode].duration
   const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0')
   const secs = String(timeLeft % 60).padStart(2, '0')
 
   const playAlarmSound = () => {
-    if (typeof window !== 'undefined' && !alarmActive) {
+    if (typeof window !== 'undefined' && !alarmIntervalRef.current) {
       setAlarmActive(true)
       const playBeep = () => {
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -207,7 +208,7 @@ export default function PomodoroTimer({ onClose, uid }: { onClose: () => void; u
                     fontSize: '0.9rem',
                   }}
                   onKeyDown={e => { if (e.key === 'Enter') applyCustom(Number((e.target as HTMLInputElement).value)) }}
-                  onChange={e => {
+                  onBlur={e => {
                     const v = Number(e.target.value)
                     if (v > 0 && v <= 180) applyCustom(v)
                   }}
