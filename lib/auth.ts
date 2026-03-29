@@ -22,6 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken as string
+      if (session.user) session.user.id = token.sub ?? ''
       return session
     },
   },
@@ -29,4 +30,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 declare module 'next-auth' {
   interface Session { accessToken?: string }
+  interface User { id?: string }
 }

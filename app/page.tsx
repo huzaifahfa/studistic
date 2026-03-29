@@ -52,7 +52,6 @@ export default function LandingPage() {
           style={{ color: '#5a5a48', fontSize: '1.05rem', fontWeight: 400 }}
         >
           Set a calm background, manage tasks, music, and time, all in one place,
-          <br />
           and let AI guide you with smarter study suggestions.
         </p>
 
