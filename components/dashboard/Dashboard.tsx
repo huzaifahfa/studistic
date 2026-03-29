@@ -183,7 +183,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
                 onClick={() => setShowBgPicker(false)}
                 style={{ color: SALMON, fontWeight: 700, fontSize: '1.1rem', background: 'none', border: 'none', cursor: 'pointer' }}
               >
-                ···
+                ✕
               </button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', padding: '1rem' }}>

@@ -83,12 +83,17 @@ export default function TodoList({ onClose, onTodosChange, uid }: { onClose: () 
             style={{ borderBottom: `2px solid ${SALMON}` }}
           >
             <span style={{ color: SALMON, fontWeight: 800, fontSize: '1.3rem' }}>Task</span>
-            <button
-              onClick={onClose}
-              style={{ color: SALMON, fontWeight: 700, fontSize: '1.1rem', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              ···
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ color: SALMON, fontWeight: 600, fontSize: '0.85rem' }}>
+                {todos.filter(t => t.done).length} completed
+              </span>
+              <button
+                onClick={onClose}
+                style={{ color: SALMON, fontWeight: 700, fontSize: '1.1rem', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Tasks list */}
