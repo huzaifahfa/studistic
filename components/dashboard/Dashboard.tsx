@@ -271,7 +271,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
       >
         <ToolBtn icon={Home} label="Home" active={false} onClick={() => router.push('/')} />
         <ToolBtn icon={Clock} label="Timer" active={widgets.pomodoro} onClick={() => toggle('pomodoro')} />
-        <ToolBtn icon={Calendar} label="Calendar" active={false} onClick={() => session ? undefined : signIn('google')} />
+        <ToolBtn icon={Calendar} label="Calendar" active={false} onClick={() => window.open('https://calendar.google.com', '_blank')} />
         <ToolBtn icon={Volume2} label="Sound" active={widgets.sound} onClick={() => toggle('sound')} />
         <ToolBtn icon={ClipboardList} label="Tasks" active={widgets.todo} onClick={() => toggle('todo')} />
         <ToolBtn icon={BookOpen} label="Notes" active={widgets.notes} onClick={() => toggle('notes')} />
