@@ -81,7 +81,6 @@ export default function Dashboard({ session }: { session: Session | null }) {
   const [showHealth, setShowHealth] = useState(false)
   const [suggestion, setSuggestion] = useState<StudySuggestion | null>(null)
   const [showSuggestion, setShowSuggestion] = useState(false)
-  const [videoPaused] = useState(false)
   const [studyPlan, setStudyPlan] = useState<StudyPlan | null>(null)
   const [studyPlanLoading, setStudyPlanLoading] = useState(false)
   const [pomodoroPreset, setPomodoroPreset] = useState<number | undefined>(undefined)
@@ -218,7 +217,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
         <video
           ref={videoRef}
           key={bg} // Force re-render when background changes
-          autoPlay={!videoPaused}
+          autoPlay
           loop
           muted
           playsInline
@@ -341,53 +340,6 @@ export default function Dashboard({ session }: { session: Session | null }) {
         )}
       </AnimatePresence>
 
-      {/* Center play/pause indicator */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 10,
-          pointerEvents: 'auto',
-        }}
-      >
-        <button
-          onClick={() => {
-            setVideoPaused(v => {
-              const newPaused = !v
-              if (videoRef.current) {
-                if (newPaused) {
-                  videoRef.current.pause()
-                } else {
-                  videoRef.current.play()
-                }
-              }
-              return newPaused
-            })
-          }}
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: '50%',
-            backgroundColor: 'rgba(255,255,255,0.55)',
-            border: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            backdropFilter: 'blur(6px)',
-            transition: 'opacity 0.2s',
-            opacity: 0.85,
-          }}
-        >
-          {videoPaused
-            ? <Play style={{ color: '#555', width: 26, height: 26, marginLeft: 3 }} />
-            : <Pause style={{ color: '#555', width: 26, height: 26 }} />
-          }
-        </button>
-      </div>
-
       {/* Top toolbar — pill with collapse handle */}
       <div
         style={{
@@ -497,6 +449,8 @@ export default function Dashboard({ session }: { session: Session | null }) {
           onClick={() => toggle('spotify')}
         />
         <ToolBtn icon={Sparkles} label="Study" active={widgets.studyPlan} onClick={openStudyPlan} />
+          </div>
+        )}
       </div>
 
       {/* Top-right: camera + user menu */}
