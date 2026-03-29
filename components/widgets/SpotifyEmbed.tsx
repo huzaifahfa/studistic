@@ -65,7 +65,7 @@ export default function SpotifyEmbed({ onClose }: { onClose: () => void }) {
                 onClick={onClose}
                 style={{ color: OLIVE, fontWeight: 700, fontSize: '1.1rem', background: 'none', border: 'none', cursor: 'pointer' }}
               >
-                ···
+                ✕
               </button>
             </div>
           </div>
