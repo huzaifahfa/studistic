@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import type { Session } from 'next-auth'
 import { signIn, signOut } from 'next-auth/react'
@@ -17,37 +17,43 @@ import TodoList from '@/components/widgets/TodoList'
 import SpotifyEmbed from '@/components/widgets/SpotifyEmbed'
 import NotesWidget from '@/components/widgets/NotesWidget'
 import SoundWidget from '@/components/widgets/SoundWidget'
+import BackgroundVideo from './BackgroundVideo'
 import type { VitalMetrics } from '@/hooks/useRPPG'
 import type { StudySuggestion } from '@/lib/gemini'
 
 const OLIVE = '#6b7c42'
 const SALMON = '#c4826e'
 
-const BACKGROUNDS: Record<string, { type: 'image' | 'gradient'; value: string; thumb: string }> = {
+const BACKGROUNDS: Record<string, { type: 'image' | 'gradient' | 'video'; value: string; thumb: string }> = {
   forest: {
-    type: 'image',
-    value: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80',
+    type: 'video',
+    value: 'https://videos.pexels.com/video-files/32537366/13875518_2560_1440_30fps.mp4',
     thumb: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=60',
   },
   lake: {
-    type: 'image',
-    value: 'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=1920&q=80',
-    thumb: 'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400&q=60',
+    type: 'video',
+    value: 'https://videos.pexels.com/video-files/7154839/7154839-uhd_2560_1440_25fps.mp4',
+    thumb: 'https://images.pexels.com/photos/34732508/pexels-photo-34732508.jpeg',
   },
   ocean: {
-    type: 'image',
-    value: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=1920&q=80',
-    thumb: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=400&q=60',
+    type: 'video',
+    value: 'https://videos.pexels.com/video-files/7010435/7010435-uhd_2732_1440_30fps.mp4', // Example video URL
+    thumb: 'https://images.pexels.com/photos/11828630/pexels-photo-11828630.jpeg',
   },
-  bedroom: {
-    type: 'image',
-    value: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=1920&q=80',
-    thumb: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=400&q=60',
+  city: {
+    type: 'video',
+    value: 'https://videos.pexels.com/video-files/30598738/13101700_2560_1440_60fps.mp4',
+    thumb: 'https://images.pexels.com/photos/35889296/pexels-photo-35889296.jpeg',
   },
   cafe: {
-    type: 'image',
-    value: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80',
-    thumb: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&q=60',
+    type: 'video',
+    value: 'https://videos.pexels.com/video-files/34784544/14747418_2560_1440_30fps.mp4',
+    thumb: 'https://images.pexels.com/photos/34604858/pexels-photo-34604858.jpeg',
+  },
+  rain: {
+    type: 'video',
+    value: 'https://www.w3schools.com/howto/rain.mp4', // Rain video from w3schools
+    thumb: 'https://images.pexels.com/photos/25961352/pexels-photo-25961352.jpeg',
   },
 }
 
@@ -70,11 +76,14 @@ export default function Dashboard({ session }: { session: Session | null }) {
   const [suggestion, setSuggestion] = useState<StudySuggestion | null>(null)
   const [showSuggestion, setShowSuggestion] = useState(false)
   const [videoPaused, setVideoPaused] = useState(true)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   const bgData = BACKGROUNDS[bg]
   const bgStyle =
     bgData.type === 'image'
       ? { backgroundImage: `url(${bgData.value})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+      : bgData.type === 'video'
+      ? {} // Videos will be handled separately
       : { background: bgData.value }
 
   const handleMetrics = useCallback(async (m: VitalMetrics) => {
@@ -98,6 +107,32 @@ export default function Dashboard({ session }: { session: Session | null }) {
 
   const toggle = (k: keyof typeof widgets) => setWidgets(v => ({ ...v, [k]: !v[k] }))
 
+  // Handle background changes
+  const handleBgChange = (newBg: string) => {
+    setBg(newBg)
+    setShowBgPicker(false)
+    
+    // Pause video if switching away from video background
+    if (BACKGROUNDS[newBg].type !== 'video' && videoRef.current) {
+      videoRef.current.pause()
+      setVideoPaused(true)
+    }
+  }
+
+  // Effect to handle video playback when background changes
+  useEffect(() => {
+    if (bgData.type === 'video' && videoRef.current) {
+      if (videoPaused) {
+        videoRef.current.pause()
+      } else {
+        videoRef.current.play().catch(() => {
+          // Handle autoplay restrictions
+          setVideoPaused(true)
+        })
+      }
+    }
+  }, [bg, videoPaused, bgData.type])
+
   // Close panels when clicking outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -110,9 +145,33 @@ export default function Dashboard({ session }: { session: Session | null }) {
   }, [])
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden" style={bgStyle}>
+    <div className="relative w-screen h-screen overflow-hidden" style={bgData.type !== 'video' ? bgStyle : {}}>
+      {/* Background video for video types */}
+      {bgData.type === 'video' && (
+        <video
+          ref={videoRef}
+          key={bg} // Force re-render when background changes
+          autoPlay={!videoPaused}
+          loop
+          muted
+          playsInline
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            zIndex: 1,
+          }}
+        >
+          <source src={bgData.value} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+      )}
+
       {/* Subtle dark overlay for contrast */}
-      <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.08)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.08)', pointerEvents: 'none', zIndex: 2 }} />
 
       {/* Floating widgets */}
       <AnimatePresence>
@@ -164,7 +223,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
               {Object.entries(BACKGROUNDS).map(([key, data]) => (
                 <button
                   key={key}
-                  onClick={() => { setBg(key); setShowBgPicker(false) }}
+                  onClick={() => handleBgChange(key)}
                   style={{
                     borderRadius: '0.75rem',
                     overflow: 'hidden',
@@ -172,6 +231,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
                     cursor: 'pointer',
                     padding: 0,
                     transition: 'border-color 0.15s',
+                    position: 'relative',
                   }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -180,6 +240,24 @@ export default function Dashboard({ session }: { session: Session | null }) {
                     alt={key}
                     style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }}
                   />
+                  {data.type === 'video' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '4px',
+                        right: '4px',
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Play style={{ color: '#fff', width: 10, height: 10, marginLeft: '1px' }} />
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -194,12 +272,24 @@ export default function Dashboard({ session }: { session: Session | null }) {
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          zIndex: 5,
+          zIndex: 10,
           pointerEvents: 'auto',
         }}
       >
         <button
-          onClick={() => setVideoPaused(v => !v)}
+          onClick={() => {
+            setVideoPaused(v => {
+              const newPaused = !v
+              if (videoRef.current) {
+                if (newPaused) {
+                  videoRef.current.pause()
+                } else {
+                  videoRef.current.play()
+                }
+              }
+              return newPaused
+            })
+          }}
           style={{
             width: 64,
             height: 64,
