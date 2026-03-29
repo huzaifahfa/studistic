@@ -4,12 +4,17 @@
 
 @layer base {
   * { box-sizing: border-box; }
-  body { background: #09090b; color: white; overflow: hidden; }
+  body { overflow: hidden; }
 }
 
 @layer components {
+  .studistic-glass {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
   .glass {
-    background: rgba(255,255,255,0.04);
+    background: rgba(255, 255, 255, 0.04);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }

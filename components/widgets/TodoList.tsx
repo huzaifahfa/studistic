@@ -3,7 +3,9 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Draggable from 'react-draggable'
-import { X, Plus, CheckCircle2, Circle, Trash2 } from 'lucide-react'
+import { addCompletedTask, addTaskAdded } from '@/lib/studyStats'
+
+const SALMON = '#c4826e'
 
 interface Todo { id: string; text: string; done: boolean }
 
@@ -18,13 +20,16 @@ export default function TodoList({ onClose, onTodosChange }: { onClose: () => vo
     const next = [...todos, { id: crypto.randomUUID(), text, done: false }]
     setTodos(next)
     onTodosChange?.(next.filter(t => !t.done).map(t => t.text))
+    addTaskAdded()
     setInput('')
   }
 
   const toggle = (id: string) => {
+    const todo = todos.find(t => t.id === id)
     const next = todos.map(t => t.id === id ? { ...t, done: !t.done } : t)
     setTodos(next)
     onTodosChange?.(next.filter(t => !t.done).map(t => t.text))
+    if (todo && !todo.done) addCompletedTask()
   }
 
   const remove = (id: string) => {
@@ -34,48 +39,117 @@ export default function TodoList({ onClose, onTodosChange }: { onClose: () => vo
   }
 
   return (
-    <Draggable nodeRef={nodeRef as React.RefObject<HTMLElement>} handle=".drag-handle" defaultPosition={{ x: 340, y: 140 }}>
-      <div ref={nodeRef} className="absolute">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-          className="glass rounded-2xl border border-white/10 w-[260px]">
-          <div className="drag-handle flex items-center justify-between px-4 py-3 border-b border-white/10 cursor-grab active:cursor-grabbing">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
-              <span className="text-xs font-semibold text-white/60">To-Do</span>
-              <span className="text-[10px] text-white/30">{todos.filter(t => !t.done).length} left</span>
-            </div>
-            <button onClick={onClose} className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-white/60"><X className="w-3 h-3" /></button>
+    <Draggable nodeRef={nodeRef as React.RefObject<HTMLElement>} handle=".drag-handle" defaultPosition={{ x: 820, y: 170 }}>
+      <div ref={nodeRef} className="absolute" style={{ zIndex: 20 }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.92 }}
+          style={{
+            width: 290,
+            borderRadius: '1.25rem',
+            overflow: 'hidden',
+            backgroundColor: '#fff',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+            fontFamily: 'var(--font-nunito), sans-serif',
+          }}
+        >
+          {/* Header */}
+          <div
+            className="drag-handle flex items-center justify-between px-5 py-3 cursor-grab active:cursor-grabbing"
+            style={{ borderBottom: `2px solid ${SALMON}` }}
+          >
+            <span style={{ color: SALMON, fontWeight: 800, fontSize: '1.3rem' }}>Task</span>
+            <button
+              onClick={onClose}
+              style={{ color: SALMON, fontWeight: 700, fontSize: '1.1rem', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              ···
+            </button>
           </div>
 
-          <div className="max-h-[220px] overflow-y-auto">
+          {/* Tasks list */}
+          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
             <AnimatePresence>
               {todos.map(todo => (
-                <motion.div key={todo.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
-                  className="flex items-center gap-2 px-4 py-2.5 hover:bg-white/5 group">
-                  <button onClick={() => toggle(todo.id)}>
-                    {todo.done
-                      ? <CheckCircle2 className="w-4 h-4 text-green-400" />
-                      : <Circle className="w-4 h-4 text-white/20" />}
-                  </button>
-                  <span className={`flex-1 text-xs ${todo.done ? 'line-through text-white/25' : 'text-white/80'}`}>{todo.text}</span>
-                  <button onClick={() => remove(todo.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Trash2 className="w-3 h-3 text-white/25 hover:text-red-400" />
+                <motion.div
+                  key={todo.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 8 }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.6rem 1.25rem',
+                    borderBottom: '1px solid #f5ede4',
+                  }}
+                >
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                      color: todo.done ? '#bbb' : SALMON,
+                      textDecoration: todo.done ? 'line-through' : 'none',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => toggle(todo.id)}
+                  >
+                    {todo.text}
+                  </span>
+                  <button
+                    onClick={() => remove(todo.id)}
+                    style={{
+                      marginLeft: '0.5rem',
+                      background: 'none',
+                      border: `1px solid ${SALMON}`,
+                      borderRadius: '0.4rem',
+                      padding: '0.15rem 0.45rem',
+                      color: SALMON,
+                      fontSize: '0.72rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    /
                   </button>
                 </motion.div>
               ))}
             </AnimatePresence>
+
             {todos.length === 0 && (
-              <p className="text-center text-[11px] text-white/20 py-6">No tasks yet</p>
+              <p style={{ textAlign: 'center', color: '#ddd', fontSize: '0.82rem', padding: '1.5rem 0' }}>
+                No tasks yet
+              </p>
             )}
           </div>
 
-          <div className="border-t border-white/10 px-3 py-2 flex gap-2">
-            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}
-              placeholder="Add a task..."
-              className="flex-1 bg-transparent text-xs text-white placeholder-white/20 outline-none" />
-            <button onClick={add} className="p-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30">
-              <Plus className="w-3.5 h-3.5" />
-            </button>
+          {/* Add task row */}
+          <div
+            style={{
+              borderTop: `1px solid #f5ede4`,
+              padding: '0.6rem 1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && add()}
+              placeholder="Add new task +"
+              style={{
+                flex: 1,
+                background: 'none',
+                border: 'none',
+                outline: 'none',
+                fontFamily: 'var(--font-nunito), sans-serif',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                color: SALMON,
+              }}
+            />
           </div>
         </motion.div>
       </div>
