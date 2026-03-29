@@ -7,11 +7,13 @@ import type { VitalMetrics } from '@/hooks/useRPPG'
 export default function HealthPopup({ metrics, onDismiss }: { metrics: VitalMetrics; onDismiss: () => void }) {
   return (
     <motion.div
+      drag
+      dragMomentum={false}
       initial={{ opacity: 0, scale: 0.85, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.85, y: 20 }}
       className="fixed z-40 glass rounded-2xl border border-white/10 p-5 w-[280px]"
-      style={{ top: '50%', right: '240px', transform: 'translateY(-50%)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+      style={{ top: '50%', right: '240px', transform: 'translateY(-50%)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', cursor: 'grab' }}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
