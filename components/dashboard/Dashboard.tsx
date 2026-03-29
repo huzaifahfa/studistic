@@ -6,7 +6,7 @@ import type { Session } from 'next-auth'
 import { signIn, signOut } from 'next-auth/react'
 import {
   Home, Clock, Calendar, Volume2, ClipboardList, BookOpen,
-  Monitor, CalendarDays, LogOut, User, Play, Pause,
+  Monitor, CalendarDays, LogOut, User, Play, Pause, Activity,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import CameraMonitor from '@/components/camera/CameraMonitor'
@@ -82,7 +82,6 @@ export default function Dashboard({ session }: { session: Session | null }) {
 
   const handleMetrics = useCallback(async (m: VitalMetrics) => {
     setHealth(m)
-    setShowHealth(true)
     const uid = session?.user?.id
     const now = Date.now()
     if (uid && now - lastBiometricSave.current > 30_000) {
@@ -272,6 +271,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
         <ToolBtn icon={Home} label="Home" active={false} onClick={() => router.push('/')} />
         <ToolBtn icon={Clock} label="Timer" active={widgets.pomodoro} onClick={() => toggle('pomodoro')} />
         <ToolBtn icon={Calendar} label="Calendar" active={false} onClick={() => window.open('https://calendar.google.com', '_blank')} />
+        <ToolBtn icon={Activity} label="Health" active={showHealth} onClick={() => health && setShowHealth(v => !v)} />
         <ToolBtn icon={Volume2} label="Sound" active={widgets.sound} onClick={() => toggle('sound')} />
         <ToolBtn icon={ClipboardList} label="Tasks" active={widgets.todo} onClick={() => toggle('todo')} />
         <ToolBtn icon={BookOpen} label="Notes" active={widgets.notes} onClick={() => toggle('notes')} />
