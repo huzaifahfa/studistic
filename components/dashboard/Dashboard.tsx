@@ -66,6 +66,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
   const [bg, setBg] = useState('forest')
   const [showBgPicker, setShowBgPicker] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [toolbarMinimized, setToolbarMinimized] = useState(false)
   const [cameraOn, setCameraOn] = useState(true)
   const [widgets, setWidgets] = useState({
     pomodoro: false,
@@ -340,30 +341,141 @@ export default function Dashboard({ session }: { session: Session | null }) {
         )}
       </AnimatePresence>
 
-      {/* Top toolbar — pill */}
+      {/* Center play/pause indicator */}
       <div
         style={{
           position: 'absolute',
-          top: '20px',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 10,
+          pointerEvents: 'auto',
+        }}
+      >
+        <button
+          onClick={() => {
+            setVideoPaused(v => {
+              const newPaused = !v
+              if (videoRef.current) {
+                if (newPaused) {
+                  videoRef.current.pause()
+                } else {
+                  videoRef.current.play()
+                }
+              }
+              return newPaused
+            })
+          }}
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255,255,255,0.55)',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            backdropFilter: 'blur(6px)',
+            transition: 'opacity 0.2s',
+            opacity: 0.85,
+          }}
+        >
+          {videoPaused
+            ? <Play style={{ color: '#555', width: 26, height: 26, marginLeft: 3 }} />
+            : <Pause style={{ color: '#555', width: 26, height: 26 }} />
+          }
+        </button>
+      </div>
+
+      {/* Top toolbar — pill with collapse handle */}
+      <div
+        style={{
+          position: 'absolute',
+          top: toolbarMinimized ? '0px' : '20px',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 40,
-          backgroundColor: 'rgba(255,255,255,0.92)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderRadius: '9999px',
-          padding: '0.5rem 1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.25rem',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-          fontFamily: 'var(--font-nunito), sans-serif',
+          transition: 'top 0.4s ease',
         }}
       >
-        <ToolBtn icon={Home} label="Home" active={false} onClick={() => router.push('/')} />
-        <ToolBtn icon={Clock} label="Timer" active={widgets.pomodoro} onClick={() => toggle('pomodoro')} />
-        <ToolBtn icon={Calendar} label="Calendar" active={false} onClick={() => window.open('https://calendar.google.com', '_blank')} />
-        <ToolBtn icon={Activity} label="Health" active={showHealth} onClick={() => health && setShowHealth(v => !v)} />
+        {toolbarMinimized ? (
+          // Handle bar when minimized
+          <button
+            onClick={() => setToolbarMinimized(false)}
+            style={{
+              width: '70px',
+              height: '10px',
+              backgroundColor: 'rgba(255,255,255,0.92)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              borderRadius: '0 0 0.75rem 0.75rem',
+              padding: '8px 0',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+              fontFamily: 'var(--font-nunito), sans-serif',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255,255,255,1)'
+              e.currentTarget.style.boxShadow = '0 6px 24px rgba(0,0,0,0.18)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.92)'
+              e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.12)'
+            }}
+          >
+            <div style={{ width: '40px', height: '4px', backgroundColor: '#6b7c42', borderRadius: '2px' }} />
+          </button>
+        ) : (
+          // Full toolbar when expanded
+          <div
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.92)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              borderRadius: '9999px',
+              padding: '0.5rem 1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+              fontFamily: 'var(--font-nunito), sans-serif',
+            }}
+          >
+            {/* Collapse handle */}
+            <button
+              onClick={() => setToolbarMinimized(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                padding: '0',
+                borderRadius: '0.5rem',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: 'transparent',
+                transition: 'background-color 0.15s',
+                fontFamily: 'var(--font-nunito), sans-serif',
+                marginRight: '0.75rem',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(107,124,66,0.1)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              title="Minimize toolbar"
+            >
+              <div style={{ width: '16px', height: '4px', backgroundColor: '#6b7c42', borderRadius: '2px' }} />
+            </button>
+
+            <ToolBtn icon={Home} label="Home" active={false} onClick={() => router.push('/')} />
+            <ToolBtn icon={Clock} label="Timer" active={widgets.pomodoro} onClick={() => toggle('pomodoro')} />
+            <ToolBtn icon={Calendar} label="Calendar" active={false} onClick={() => window.open('https://calendar.google.com', '_blank')} />
+                <ToolBtn icon={Activity} label="Health" active={showHealth} onClick={() => health && setShowHealth(v => !v)} />
         <ToolBtn icon={Volume2} label="Sound" active={widgets.sound} onClick={() => toggle('sound')} />
         <ToolBtn icon={ClipboardList} label="Tasks" active={widgets.todo} onClick={() => toggle('todo')} />
         <ToolBtn icon={BookOpen} label="Notes" active={widgets.notes} onClick={() => toggle('notes')} />
@@ -583,3 +695,4 @@ function ToolBtn({
     </button>
   )
 }
+
