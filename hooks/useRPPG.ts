@@ -109,33 +109,21 @@ export function useRPPG({ videoRef, enabled = true }: UseRPPGOptions) {
 
       let R = 0, G = 0, B = 0
 
-      if (detection) {
-        const { x, y, width, height } = detection.box
-        const imageData = ctx.getImageData(
-          Math.max(0, Math.floor(x)),
-          Math.max(0, Math.floor(y)),
-          Math.min(canvas.width - Math.floor(x), Math.floor(width)),
-          Math.min(canvas.height - Math.floor(y), Math.floor(height))
-        )
-        const px = imageData.data
-        let n = 0
-        for (let i = 0; i < px.length; i += 4) {
-          R += px[i]; G += px[i + 1]; B += px[i + 2]; n++
-        }
-        if (n > 0) { R /= n; G /= n; B /= n }
-      } else {
-        // Fallback: center 50% of frame
-        const cd = ctx.getImageData(
-          Math.floor(canvas.width * 0.25), Math.floor(canvas.height * 0.25),
-          Math.floor(canvas.width * 0.5), Math.floor(canvas.height * 0.5)
-        )
-        const px = cd.data
-        let n = 0
-        for (let i = 0; i < px.length; i += 4) {
-          R += px[i]; G += px[i + 1]; B += px[i + 2]; n++
-        }
-        if (n > 0) { R /= n; G /= n; B /= n }
+      if (!detection) return
+
+      const { x, y, width, height } = detection.box
+      const imageData = ctx.getImageData(
+        Math.max(0, Math.floor(x)),
+        Math.max(0, Math.floor(y)),
+        Math.min(canvas.width - Math.floor(x), Math.floor(width)),
+        Math.min(canvas.height - Math.floor(y), Math.floor(height))
+      )
+      const px = imageData.data
+      let n = 0
+      for (let i = 0; i < px.length; i += 4) {
+        R += px[i]; G += px[i + 1]; B += px[i + 2]; n++
       }
+      if (n > 0) { R /= n; G /= n; B /= n }
 
       signalBuffer.current.push({ R, G, B })
 
