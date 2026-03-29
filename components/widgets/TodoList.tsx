@@ -108,19 +108,40 @@ export default function TodoList({ onClose, onTodosChange, uid }: { onClose: () 
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
+                    gap: '0.6rem',
                     padding: '0.6rem 1.25rem',
                     borderBottom: '1px solid #f5ede4',
                   }}
                 >
+                  <button
+                    onClick={() => toggle(todo.id)}
+                    style={{
+                      width: '1.1rem',
+                      height: '1.1rem',
+                      minWidth: '1.1rem',
+                      border: `2px solid ${SALMON}`,
+                      borderRadius: '0.25rem',
+                      backgroundColor: todo.done ? SALMON : 'transparent',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    {todo.done && (
+                      <span style={{ color: '#fff', fontSize: '0.75rem', fontWeight: 'bold' }}>✓</span>
+                    )}
+                  </button>
                   <span
                     style={{
                       flex: 1,
                       fontSize: '0.9rem',
                       fontWeight: 600,
-                      color: todo.done ? '#bbb' : SALMON,
+                      color: todo.done ? '#999' : SALMON,
                       textDecoration: todo.done ? 'line-through' : 'none',
                       cursor: 'pointer',
+                      transition: 'all 0.3s ease',
                     }}
                     onClick={() => toggle(todo.id)}
                   >
@@ -129,17 +150,21 @@ export default function TodoList({ onClose, onTodosChange, uid }: { onClose: () 
                   <button
                     onClick={() => remove(todo.id)}
                     style={{
-                      marginLeft: '0.5rem',
                       background: 'none',
-                      border: `1px solid ${SALMON}`,
-                      borderRadius: '0.4rem',
-                      padding: '0.15rem 0.45rem',
+                      border: 'none',
                       color: SALMON,
-                      fontSize: '0.72rem',
+                      fontSize: '1.2rem',
                       cursor: 'pointer',
+                      padding: '0.25rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease',
                     }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                   >
-                    /
+                    −
                   </button>
                 </motion.div>
               ))}
