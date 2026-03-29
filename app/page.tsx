@@ -30,16 +30,6 @@ export default function LandingPage() {
       {/* Top-right profile icon */}
       {/* Content wrapper with restored saturation */}
       <div style={{ filter: 'saturate(1.5)', position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Top-right profile icon */}
-      <div className="flex justify-end p-6 pb-0">
-        <div
-          className="w-12 h-12 rounded-full flex items-center justify-center cursor-pointer"
-          style={{ backgroundColor: '#d4a49a' }}
-          onClick={() => router.push('/dashboard')}
-        >
-          <User className="w-7 h-7 text-white" strokeWidth={1.5} />
-        </div>
-      </div>
 
       {/* Center content */}
       <div className="flex-1 flex flex-col items-center justify-center px-8" style={{ marginTop: '-2rem' }}>

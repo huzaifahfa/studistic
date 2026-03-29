@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
     ],
   },
+  devIndicators: false,
   webpack: (config, { isServer }) => {
     // face-api.js needs canvas as optional dep
     config.externals = [...(config.externals || []), { canvas: 'canvas' }]
