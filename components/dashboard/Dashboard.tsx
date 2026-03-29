@@ -361,7 +361,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
                     <p style={{ fontSize: '0.75rem', color: '#999', margin: 0 }}>{session.user?.email}</p>
                   </div>
                   <button
-                    onClick={() => signOut({ redirect: false })}
+                    onClick={() => signOut({ callbackUrl: '/' })}
                     style={{
                       width: '100%',
                       display: 'flex',
