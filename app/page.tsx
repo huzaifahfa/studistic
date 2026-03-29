@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { User } from 'lucide-react'
+import Image from 'next/image'
 import { getPublicStats } from '@/lib/studyStats'
 
 export default function LandingPage() {
   const router = useRouter()
   const [stats, setStats] = useState({ hoursStudied: 0, tasksCompleted: 0, totalTasksAdded: 0, streak: 0 })
+  const [isHovering, setIsHovering] = useState(false)
 
   useEffect(() => {
     setStats(getPublicStats())
@@ -15,9 +17,19 @@ export default function LandingPage() {
 
   return (
     <div
-      className="w-screen h-screen overflow-hidden flex flex-col"
-      style={{ backgroundColor: '#f8f4ec', fontFamily: 'var(--font-nunito), sans-serif' }}
+      className="w-screen h-screen overflow-hidden flex flex-col relative"
+      style={{ 
+        backgroundImage: 'url(/Textured%20Paper%20%26%20Cardboard%20-%20Negative%20Space_...jpeg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundColor: '#f8f4ec',
+        fontFamily: 'var(--font-nunito), sans-serif',
+        filter: 'saturate(0.6)'
+      }}
     >
+      {/* Top-right profile icon */}
+      {/* Content wrapper with restored saturation */}
+      <div style={{ filter: 'saturate(1.5)', position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Top-right profile icon */}
       <div className="flex justify-end p-6 pb-0">
         <div
@@ -31,25 +43,45 @@ export default function LandingPage() {
 
       {/* Center content */}
       <div className="flex-1 flex flex-col items-center justify-center px-8" style={{ marginTop: '-2rem' }}>
-        {/* Title */}
-        <h1
-          className="text-center leading-none select-none"
-          style={{
-            fontSize: 'clamp(5rem, 12vw, 9rem)',
-            fontWeight: 900,
-            color: '#6b7c42',
-            fontFamily: 'var(--font-nunito), sans-serif',
-            letterSpacing: '-0.02em',
-            textShadow: '0 4px 0 rgba(107,124,66,0.15)',
-          }}
-        >
-          StudiStic
-        </h1>
+        {/* Title with image */}
+        <div className="flex items-center justify-center gap-4">
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <h1
+              className="text-center leading-none select-none"
+              style={{
+                fontSize: 'clamp(5rem, 12vw, 9rem)',
+                fontWeight: 900,
+                color: '#6b7c42',
+                fontFamily: 'var(--font-nunito), sans-serif',
+                letterSpacing: '-0.02em',
+                textShadow: '0 4px 0 rgba(107,124,66,0.15)',
+              }}
+            >
+              StudiStic
+            </h1>
+          </div>
+
+          {/* Decorative image */}
+          <div 
+            className="animate-spin" 
+            style={{ animationDuration: isHovering ? '1s' : '8s', transition: 'animation-duration 0.3s ease' }}
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+          >
+            <Image 
+              src="/scribbles/Untitled design.png" 
+              alt="decorative design" 
+              width={170} 
+              height={170}
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+        </div>
 
         {/* Tagline */}
         <p
           className="text-center mt-5 max-w-lg leading-relaxed"
-          style={{ color: '#5a5a48', fontSize: '1.05rem', fontWeight: 400 }}
+          style={{ color: '#5a5a48', fontSize: '1.35rem', fontWeight: 700 }}
         >
           Set a calm background, manage tasks, music, and time, all in one place,
           <br />
@@ -105,6 +137,7 @@ export default function LandingPage() {
             unit="days"
           />
         </div>
+      </div>
       </div>
     </div>
   )
