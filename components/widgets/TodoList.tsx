@@ -1,27 +1,46 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Draggable from 'react-draggable'
 import { addCompletedTask, addTaskAdded } from '@/lib/studyStats'
+import { addTask as dbAddTask, completeTask as dbCompleteTask, deleteTask as dbDeleteTask, getTasks } from '@/lib/db'
 
 const SALMON = '#c4826e'
 
 interface Todo { id: string; text: string; done: boolean }
 
-export default function TodoList({ onClose, onTodosChange }: { onClose: () => void; onTodosChange?: (todos: string[]) => void }) {
+export default function TodoList({ onClose, onTodosChange, uid }: { onClose: () => void; onTodosChange?: (todos: string[]) => void; uid?: string }) {
   const [todos, setTodos] = useState<Todo[]>([])
   const [input, setInput] = useState('')
   const nodeRef = useRef<HTMLDivElement>(null)
 
-  const add = () => {
+  useEffect(() => {
+    if (!uid) return
+    getTasks(uid).then(tasks => {
+      const incomplete = tasks
+        .filter(t => !t.completed)
+        .map(t => ({ id: t.id!, text: t.text, done: false }))
+      setTodos(incomplete)
+      onTodosChange?.(incomplete.map(t => t.text))
+    }).catch(console.error)
+  }, [uid])
+
+  const add = async () => {
     const text = input.trim()
     if (!text) return
-    const next = [...todos, { id: crypto.randomUUID(), text, done: false }]
+    const tempId = crypto.randomUUID()
+    const next = [...todos, { id: tempId, text, done: false }]
     setTodos(next)
     onTodosChange?.(next.filter(t => !t.done).map(t => t.text))
-    addTaskAdded()
+    addTaskAdded(uid)
     setInput('')
+    if (uid) {
+      const firestoreId = await dbAddTask(uid, text).catch(console.error)
+      if (firestoreId) {
+        setTodos(prev => prev.map(t => t.id === tempId ? { ...t, id: firestoreId } : t))
+      }
+    }
   }
 
   const toggle = (id: string) => {
@@ -29,13 +48,17 @@ export default function TodoList({ onClose, onTodosChange }: { onClose: () => vo
     const next = todos.map(t => t.id === id ? { ...t, done: !t.done } : t)
     setTodos(next)
     onTodosChange?.(next.filter(t => !t.done).map(t => t.text))
-    if (todo && !todo.done) addCompletedTask()
+    if (todo && !todo.done) {
+      addCompletedTask(uid)
+      if (uid) dbCompleteTask(uid, id).catch(console.error)
+    }
   }
 
   const remove = (id: string) => {
     const next = todos.filter(t => t.id !== id)
     setTodos(next)
     onTodosChange?.(next.filter(t => !t.done).map(t => t.text))
+    if (uid) dbDeleteTask(uid, id).catch(console.error)
   }
 
   return (

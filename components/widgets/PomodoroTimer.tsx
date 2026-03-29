@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import Draggable from 'react-draggable'
 import { addStudyMinutes } from '@/lib/studyStats'
+import { startStudySession, endStudySession } from '@/lib/db'
 
 const OLIVE = '#6b7c42'
 const SALMON = '#c4826e'
@@ -15,7 +16,7 @@ const MODES = {
 }
 type ModeKey = keyof typeof MODES
 
-export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
+export default function PomodoroTimer({ onClose, uid }: { onClose: () => void; uid?: string }) {
   const [mode, setMode] = useState<ModeKey>('pomodoro')
   const [customMinutes, setCustomMinutes] = useState(25)
   const [showCustomInput, setShowCustomInput] = useState(false)
@@ -23,6 +24,7 @@ export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
   const [running, setRunning] = useState(false)
   const [sessions, setSessions] = useState(0)
   const nodeRef = useRef<HTMLDivElement>(null)
+  const sessionIdRef = useRef<string | null>(null)
 
   const duration = mode === 'custom' ? customMinutes * 60 : MODES[mode].duration
   const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0')
@@ -30,13 +32,24 @@ export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     if (!running) return
+    if (mode !== 'shortBreak' && uid && !sessionIdRef.current) {
+      startStudySession(uid, mode === 'custom' ? 'free' : 'pomodoro')
+        .then(id => { sessionIdRef.current = id })
+        .catch(console.error)
+    }
     const t = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           setRunning(false)
           if (mode !== 'shortBreak') {
-            addStudyMinutes(Math.round(duration / 60))
+            const mins = Math.round(duration / 60)
+            addStudyMinutes(mins, uid)
             setSessions(s => s + 1)
+            if (uid && sessionIdRef.current) {
+              endStudySession(uid, sessionIdRef.current, { durationMinutes: mins, tasksCompleted: 0 })
+                .catch(console.error)
+              sessionIdRef.current = null
+            }
           }
           return duration
         }

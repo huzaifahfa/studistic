@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import type { Session } from 'next-auth'
 import { signIn, signOut } from 'next-auth/react'
@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'next/navigation'
 import CameraMonitor from '@/components/camera/CameraMonitor'
 import HealthPopup from '@/components/health/HealthPopup'
-import AISuggestionModal from '@/components/ai/AISuggestionModal'
+import AISuggestionModal from '@/components/ai/AIsuggestionModal'
 import PomodoroTimer from '@/components/widgets/PomodoroTimer'
 import TodoList from '@/components/widgets/TodoList'
 import SpotifyEmbed from '@/components/widgets/SpotifyEmbed'
@@ -19,6 +19,8 @@ import NotesWidget from '@/components/widgets/NotesWidget'
 import SoundWidget from '@/components/widgets/SoundWidget'
 import type { VitalMetrics } from '@/hooks/useRPPG'
 import type { StudySuggestion } from '@/lib/gemini'
+import { upsertUser, saveBiometricReading } from '@/lib/db'
+import { syncFromFirestore } from '@/lib/studyStats'
 
 const OLIVE = '#6b7c42'
 const SALMON = '#c4826e'
@@ -70,6 +72,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
   const [suggestion, setSuggestion] = useState<StudySuggestion | null>(null)
   const [showSuggestion, setShowSuggestion] = useState(false)
   const [videoPaused, setVideoPaused] = useState(true)
+  const lastBiometricSave = useRef(0)
 
   const bgData = BACKGROUNDS[bg]
   const bgStyle =
@@ -80,6 +83,19 @@ export default function Dashboard({ session }: { session: Session | null }) {
   const handleMetrics = useCallback(async (m: VitalMetrics) => {
     setHealth(m)
     setShowHealth(true)
+    const uid = session?.user?.id
+    const now = Date.now()
+    if (uid && now - lastBiometricSave.current > 30_000) {
+      lastBiometricSave.current = now
+      saveBiometricReading(uid, {
+        heartRate: m.heartRate,
+        respirationRate: m.respirationRate,
+        oxygenSaturation: m.oxygenSaturation,
+        stressLevel: m.stressLevel,
+        fatigueLevel: m.fatigueLevel,
+        hrvScore: m.hrvScore,
+      }).catch(console.error)
+    }
     if (m.stressLevel > 60 || m.fatigueLevel > 65) {
       try {
         const res = await fetch('/api/gemini/suggest', {
@@ -97,6 +113,17 @@ export default function Dashboard({ session }: { session: Session | null }) {
   }, [todos])
 
   const toggle = (k: keyof typeof widgets) => setWidgets(v => ({ ...v, [k]: !v[k] }))
+
+  // Upsert user profile + sync stats when session is established
+  useEffect(() => {
+    const uid = session?.user?.id
+    const email = session?.user?.email
+    const name = session?.user?.name
+    if (!uid || !email) return
+    upsertUser(uid, { email, name: name ?? '', photoURL: session?.user?.image ?? undefined })
+      .catch(console.error)
+    syncFromFirestore(uid).catch(console.error)
+  }, [session?.user?.id])
 
   // Close panels when clicking outside
   useEffect(() => {
@@ -116,8 +143,8 @@ export default function Dashboard({ session }: { session: Session | null }) {
 
       {/* Floating widgets */}
       <AnimatePresence>
-        {widgets.pomodoro && <PomodoroTimer key="pomodoro" onClose={() => toggle('pomodoro')} />}
-        {widgets.todo && <TodoList key="todo" onClose={() => toggle('todo')} onTodosChange={setTodos} />}
+        {widgets.pomodoro && <PomodoroTimer key="pomodoro" onClose={() => toggle('pomodoro')} uid={session?.user?.id} />}
+        {widgets.todo && <TodoList key="todo" onClose={() => toggle('todo')} onTodosChange={setTodos} uid={session?.user?.id} />}
         {widgets.spotify && <SpotifyEmbed key="spotify" onClose={() => toggle('spotify')} />}
         {widgets.notes && <NotesWidget key="notes" onClose={() => toggle('notes')} />}
         {widgets.sound && <SoundWidget key="sound" onClose={() => toggle('sound')} />}
