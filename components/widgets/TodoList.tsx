@@ -15,14 +15,19 @@ export default function TodoList({ onClose, onTodosChange, uid }: { onClose: () 
   const [input, setInput] = useState('')
   const nodeRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+useEffect(() => {
     if (!uid) return
     getTasks(uid).then(tasks => {
-      const incomplete = tasks
-        .filter(t => !t.completed)
-        .map(t => ({ id: t.id!, text: t.text, done: false }))
-      setTodos(incomplete)
-      onTodosChange?.(incomplete.map(t => t.text))
+      // 1. Remove the .filter() so completed tasks don't disappear
+      // 2. Map the database 'completed' status to your local 'done' status
+      const allTasks = tasks.map(t => ({ 
+          id: t.id!, 
+          text: t.text,
+          done: t.completed || false // Apply the saved status here
+      }))
+      
+      setTodos(allTasks)
+      onTodosChange?.(allTasks.filter(t => !t.done).map(t => t.text))
     }).catch(console.error)
   }, [uid])
 
