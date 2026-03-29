@@ -3,35 +3,18 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { SessionProvider } from 'next-auth/react'
 
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-})
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'StudySpace - Your Intelligent Study Environment',
-  description: 'AI-powered study space with health monitoring, ambient sounds, and smart productivity tools.',
-  keywords: ['study', 'productivity', 'pomodoro', 'focus', 'AI', 'health monitoring'],
-  authors: [{ name: 'StudySpace Team' }],
-  openGraph: {
-    title: 'StudySpace',
-    description: 'Your intelligent study environment',
-    type: 'website',
-  },
+  title: 'StudySpace',
+  description: 'AI-powered study environment with health monitoring.',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
       <body className={`${inter.variable} font-sans antialiased bg-zinc-950 text-white`}>
-        <SessionProvider>
-          {children}
-        </SessionProvider>
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   )

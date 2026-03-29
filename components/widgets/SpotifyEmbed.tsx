@@ -1,113 +1,71 @@
 'use client'
 
-import { useState } from 'react'
-import { Music2, Link, ExternalLink } from 'lucide-react'
-import Widget from './Widget'
+import { useState, useRef } from 'react'
+import { motion } from 'framer-motion'
+import Draggable from 'react-draggable'
+import { X, Link } from 'lucide-react'
 
-function toSpotifyEmbedUrl(url: string): string | null {
-  // Match: https://open.spotify.com/{type}/{id}
-  const match = url.match(/open\.spotify\.com\/(playlist|album|track|artist|episode|show)\/([a-zA-Z0-9]+)/)
-  if (!match) return null
-  const [, type, id] = match
-  return `https://open.spotify.com/embed/${type}/${id}?utm_source=generator&theme=0`
+const DEFAULT_PLAYLIST = 'https://open.spotify.com/embed/playlist/37i9dQZF1DX8NTLI2TtZa6'
+
+function toEmbedUrl(raw: string): string {
+  const url = raw.replace('https://open.spotify.com/', 'https://open.spotify.com/embed/')
+  return url.split('?')[0]
 }
 
-const DEFAULTS = [
-  { label: 'Lofi Hip Hop', url: 'https://open.spotify.com/embed/playlist/0vvXsWCC9xrXsKd4eZs6e1?utm_source=generator&theme=0' },
-  { label: 'Deep Focus', url: 'https://open.spotify.com/embed/playlist/37i9dQZF1DWZeKCadgRdKQ?utm_source=generator&theme=0' },
-  { label: 'Study Beats', url: 'https://open.spotify.com/embed/playlist/37i9dQZF1DX8NTLI2TtZa6?utm_source=generator&theme=0' },
-]
-
-interface SpotifyEmbedProps {
-  onClose?: () => void
-  defaultPosition?: { x: number; y: number }
-}
-
-export default function SpotifyEmbed({ onClose, defaultPosition }: SpotifyEmbedProps) {
+export default function SpotifyEmbed({ onClose }: { onClose: () => void }) {
+  const [embedUrl, setEmbedUrl] = useState(DEFAULT_PLAYLIST)
   const [inputUrl, setInputUrl] = useState('')
-  const [embedUrl, setEmbedUrl] = useState(DEFAULTS[0].url)
-  const [error, setError] = useState('')
+  const [showInput, setShowInput] = useState(false)
+  const nodeRef = useRef<HTMLDivElement>(null)
 
-  const applyUrl = () => {
-    if (!inputUrl.trim()) return
-    const embed = toSpotifyEmbedUrl(inputUrl.trim())
-    if (embed) {
-      setEmbedUrl(embed)
-      setError('')
-    } else {
-      setError('Invalid Spotify URL. Use a playlist, album, or track link.')
+  const apply = () => {
+    const converted = toEmbedUrl(inputUrl.trim())
+    if (converted.includes('spotify.com/embed')) {
+      setEmbedUrl(converted)
+      setShowInput(false)
+      setInputUrl('')
     }
   }
 
   return (
-    <Widget
-      title="Spotify"
-      onClose={onClose}
-      defaultPosition={defaultPosition || { x: 80, y: 520 }}
-      minWidth={300}
-      accentColor="#1db954"
-    >
-      <div style={{ minWidth: 280 }}>
-        {/* Quick picks */}
-        <div className="flex gap-1.5 mb-3">
-          {DEFAULTS.map((d) => (
-            <button
-              key={d.label}
-              onClick={() => setEmbedUrl(d.url)}
-              className={`flex-1 py-1 rounded-lg text-[10px] font-medium transition-all border ${
-                embedUrl === d.url
-                  ? 'bg-green-500/20 border-green-500/30 text-green-300'
-                  : 'border-white/10 text-white/40 hover:text-white/60 hover:border-white/20'
-              }`}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
+    <Draggable nodeRef={nodeRef as React.RefObject<HTMLElement>} handle=".drag-handle" defaultPosition={{ x: 80, y: 460 }}>
+      <div ref={nodeRef} className="absolute">
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+          className="glass rounded-2xl border border-white/10 overflow-hidden w-[280px]">
+          <div className="drag-handle flex items-center justify-between px-4 py-3 border-b border-white/10 cursor-grab active:cursor-grabbing">
+            <div className="flex items-center gap-2">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="#1db954">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+              </svg>
+              <span className="text-xs font-semibold text-white/60">Spotify</span>
+            </div>
+            <div className="flex gap-1">
+              <button onClick={() => setShowInput(v => !v)} className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-white/60">
+                <Link className="w-3 h-3" />
+              </button>
+              <button onClick={onClose} className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-white/60"><X className="w-3 h-3" /></button>
+            </div>
+          </div>
 
-        {/* Embed iframe */}
-        <div className="rounded-xl overflow-hidden mb-3" style={{ height: 152 }}>
+          {showInput && (
+            <div className="px-3 py-2 border-b border-white/10 flex gap-2">
+              <input value={inputUrl} onChange={e => setInputUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && apply()}
+                placeholder="Paste Spotify URL..."
+                className="flex-1 bg-transparent text-[11px] text-white placeholder-white/20 outline-none" />
+              <button onClick={apply} className="text-[11px] font-semibold text-green-400 hover:text-green-300">Go</button>
+            </div>
+          )}
+
           <iframe
             src={embedUrl}
-            width="100%"
-            height="152"
+            width="280" height="200"
             frameBorder="0"
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             loading="lazy"
-            className="rounded-xl"
+            className="block"
           />
-        </div>
-
-        {/* Custom URL input */}
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <Music2 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
-            <input
-              type="url"
-              placeholder="Paste Spotify URL..."
-              value={inputUrl}
-              onChange={(e) => { setInputUrl(e.target.value); setError('') }}
-              onKeyDown={(e) => e.key === 'Enter' && applyUrl()}
-              className="w-full pl-8 pr-3 py-2 text-xs bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-green-500/50"
-            />
-          </div>
-          <button
-            onClick={applyUrl}
-            className="p-2 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition-colors"
-          >
-            <Link className="w-3.5 h-3.5" />
-          </button>
-          <a
-            href="https://open.spotify.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white/70 transition-colors"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        </div>
-        {error && <p className="text-xs text-red-400 mt-1.5">{error}</p>}
+        </motion.div>
       </div>
-    </Widget>
+    </Draggable>
   )
 }

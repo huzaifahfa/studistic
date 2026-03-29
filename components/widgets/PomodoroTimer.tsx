@@ -1,253 +1,109 @@
 'use client'
 
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Pause, RotateCcw, SkipForward, Settings, Sparkles } from 'lucide-react'
-import { usePomodoro, type PomodoroMode } from '@/hooks/usePomodoro'
-import Widget from './Widget'
+import { useState, useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
+import Draggable from 'react-draggable'
+import { X, Play, Pause, RotateCcw } from 'lucide-react'
 
-interface PomodoroTimerProps {
-  onClose?: () => void
-  defaultPosition?: { x: number; y: number }
+const MODES = {
+  work:       { label: 'Focus',       duration: 25 * 60, color: '#ef4444' },
+  shortBreak: { label: 'Short Break', duration: 5 * 60,  color: '#22c55e' },
+  longBreak:  { label: 'Long Break',  duration: 15 * 60, color: '#6366f1' },
 }
+type ModeKey = keyof typeof MODES
 
-const MODE_CONFIG = {
-  work: {
-    label: 'Focus',
-    color: '#ef4444',
-    bg: 'bg-red-500/10',
-    border: 'border-red-500/30',
-    accent: '#ef4444',
-  },
-  shortBreak: {
-    label: 'Short Break',
-    color: '#22c55e',
-    bg: 'bg-green-500/10',
-    border: 'border-green-500/30',
-    accent: '#22c55e',
-  },
-  longBreak: {
-    label: 'Long Break',
-    color: '#3b82f6',
-    bg: 'bg-blue-500/10',
-    border: 'border-blue-500/30',
-    accent: '#3b82f6',
-  },
-}
+export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
+  const [mode, setMode] = useState<ModeKey>('work')
+  const [timeLeft, setTimeLeft] = useState(MODES.work.duration)
+  const [running, setRunning] = useState(false)
+  const [sessions, setSessions] = useState(0)
+  const nodeRef = useRef<HTMLDivElement>(null)
 
-const CIRCLE_R = 54
-const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_R
+  const { label, duration, color } = MODES[mode]
+  const progress = 1 - timeLeft / duration
+  const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0')
+  const secs = String(timeLeft % 60).padStart(2, '0')
 
-export default function PomodoroTimer({ onClose, defaultPosition }: PomodoroTimerProps) {
-  const [showSettings, setShowSettings] = useState(false)
-  const [customDurations, setCustomDurations] = useState({ work: 25, shortBreak: 5, longBreak: 15 })
+  useEffect(() => {
+    if (!running) return
+    const t = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          setRunning(false)
+          setSessions(s => s + 1)
+          const next: ModeKey = mode === 'work' ? (sessions % 3 === 2 ? 'longBreak' : 'shortBreak') : 'work'
+          setMode(next)
+          return MODES[next].duration
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(t)
+  }, [running, mode, sessions])
 
-  const {
-    mode,
-    timeLeft,
-    isRunning,
-    sessionsCompleted,
-    progress,
-    formattedTime,
-    start,
-    pause,
-    reset,
-    skip,
-    switchMode,
-    updateDuration,
-  } = usePomodoro()
+  const switchMode = (m: ModeKey) => { setMode(m); setTimeLeft(MODES[m].duration); setRunning(false) }
 
-  const config = MODE_CONFIG[mode]
-  const dashOffset = CIRCLE_CIRCUMFERENCE * (1 - progress)
-
-  const handleDurationChange = (m: PomodoroMode, val: string) => {
-    const minutes = parseInt(val)
-    if (!isNaN(minutes) && minutes > 0 && minutes <= 120) {
-      setCustomDurations((prev) => ({ ...prev, [m]: minutes }))
-      updateDuration(m, minutes)
-    }
-  }
+  const r = 52
+  const circumference = 2 * Math.PI * r
 
   return (
-    <Widget
-      title="Pomodoro Timer"
-      onClose={onClose}
-      defaultPosition={defaultPosition || { x: 80, y: 140 }}
-      minWidth={300}
-      accentColor={config.color}
-      headerExtra={
-        <button
-          onClick={(e) => { e.stopPropagation(); setShowSettings((v) => !v) }}
-          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/40 hover:text-white/70"
-        >
-          <Settings className="w-3 h-3" />
-        </button>
-      }
-    >
-      <div className="w-full" style={{ minWidth: 268 }}>
-        {/* Mode tabs */}
-        <div className="flex gap-1 mb-4 p-1 rounded-xl bg-white/5 border border-white/10">
-          {(Object.keys(MODE_CONFIG) as PomodoroMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => switchMode(m)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                mode === m
-                  ? `${MODE_CONFIG[m].bg} ${MODE_CONFIG[m].border} border text-white`
-                  : 'text-white/40 hover:text-white/60'
-              }`}
-            >
-              {MODE_CONFIG[m].label}
-            </button>
-          ))}
-        </div>
-
-        {/* SVG Ring Timer */}
-        <div className="flex flex-col items-center mb-4">
-          <div className="relative w-40 h-40">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-              {/* Background ring */}
-              <circle
-                cx="60"
-                cy="60"
-                r={CIRCLE_R}
-                fill="none"
-                stroke="rgba(255,255,255,0.08)"
-                strokeWidth="6"
-              />
-              {/* Progress ring */}
-              <motion.circle
-                cx="60"
-                cy="60"
-                r={CIRCLE_R}
-                fill="none"
-                stroke={config.color}
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray={CIRCLE_CIRCUMFERENCE}
-                strokeDashoffset={dashOffset}
-                style={{
-                  filter: `drop-shadow(0 0 6px ${config.color}80)`,
-                  transition: 'stroke-dashoffset 0.5s ease',
-                }}
-              />
-            </svg>
-            {/* Time display */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <motion.span
-                key={formattedTime}
-                className="text-3xl font-black tracking-tighter text-white"
-                style={{ textShadow: `0 0 20px ${config.color}60` }}
-              >
-                {formattedTime}
-              </motion.span>
-              <span className="text-xs text-white/40 mt-0.5">{config.label}</span>
-            </div>
+    <Draggable nodeRef={nodeRef as React.RefObject<HTMLElement>} handle=".drag-handle" defaultPosition={{ x: 80, y: 140 }}>
+      <div ref={nodeRef} className="absolute">
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+          className="glass rounded-2xl border border-white/10 overflow-hidden w-[220px]">
+          <div className="drag-handle flex items-center justify-between px-4 py-3 border-b border-white/10 cursor-grab active:cursor-grabbing">
+            <span className="text-xs font-semibold text-white/60">Pomodoro</span>
+            <button onClick={onClose} className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-white/60"><X className="w-3 h-3" /></button>
           </div>
-        </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <button
-            onClick={reset}
-            className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white/50 hover:text-white/80"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
+          <div className="p-4">
+            {/* Mode tabs */}
+            <div className="flex gap-1 mb-4">
+              {(Object.keys(MODES) as ModeKey[]).map(m => (
+                <button key={m} onClick={() => switchMode(m)}
+                  className="flex-1 py-1 rounded-lg text-[10px] font-medium transition-all"
+                  style={{ background: mode === m ? `${MODES[m].color}30` : 'transparent', color: mode === m ? MODES[m].color : 'rgba(255,255,255,0.3)' }}>
+                  {MODES[m].label}
+                </button>
+              ))}
+            </div>
 
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={isRunning ? pause : start}
-            className="px-8 py-3 rounded-xl font-bold text-white text-sm transition-all"
-            style={{
-              background: `linear-gradient(135deg, ${config.color}cc, ${config.color}99)`,
-              boxShadow: `0 0 20px ${config.color}40`,
-            }}
-          >
-            {isRunning ? (
-              <span className="flex items-center gap-2"><Pause className="w-4 h-4" />Pause</span>
-            ) : (
-              <span className="flex items-center gap-2"><Play className="w-4 h-4" />Start</span>
-            )}
-          </motion.button>
+            {/* Ring */}
+            <div className="flex justify-center mb-4">
+              <div className="relative">
+                <svg width="128" height="128" className="-rotate-90">
+                  <circle cx="64" cy="64" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+                  <circle cx="64" cy="64" r={r} fill="none" stroke={color} strokeWidth="6"
+                    strokeLinecap="round" strokeDasharray={circumference}
+                    strokeDashoffset={circumference * (1 - progress)}
+                    style={{ transition: 'stroke-dashoffset 1s linear', filter: `drop-shadow(0 0 6px ${color}80)` }} />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-2xl font-black text-white tracking-tight">{mins}:{secs}</span>
+                  <span className="text-[10px] text-white/40">{label}</span>
+                </div>
+              </div>
+            </div>
 
-          <button
-            onClick={skip}
-            className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white/50 hover:text-white/80"
-          >
-            <SkipForward className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Session dots */}
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <span className="text-xs text-white/30 mr-2">Sessions</span>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <motion.div
-              key={i}
-              className="rounded-full transition-all"
-              style={{
-                width: 8,
-                height: 8,
-                background: i < (sessionsCompleted % 4) ? config.color : 'rgba(255,255,255,0.1)',
-                boxShadow: i < (sessionsCompleted % 4) ? `0 0 6px ${config.color}` : 'none',
-              }}
-              animate={i < (sessionsCompleted % 4) ? { scale: [1, 1.2, 1] } : {}}
-              transition={{ duration: 0.5 }}
-            />
-          ))}
-          <span className="text-xs text-white/30 ml-2">{sessionsCompleted} total</span>
-        </div>
-
-        {/* AI Suggestion badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-2 p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" />
-          <span className="text-xs text-violet-300 flex-1">AI suggested: 9:00-11:00 AM</span>
-          <button className="text-xs text-violet-400 hover:text-violet-300 font-medium px-2 py-0.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 transition-colors">
-            Accept
-          </button>
-        </motion.div>
-
-        {/* Settings panel */}
-        <AnimatePresence>
-          {showSettings && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-4 pt-4 border-t border-white/10 overflow-hidden"
-            >
-              <p className="text-xs font-semibold text-white/50 mb-3 uppercase tracking-wider">Custom Durations</p>
-              <div className="space-y-2">
-                {[
-                  { key: 'work' as PomodoroMode, label: 'Focus Time' },
-                  { key: 'shortBreak' as PomodoroMode, label: 'Short Break' },
-                  { key: 'longBreak' as PomodoroMode, label: 'Long Break' },
-                ].map(({ key, label }) => (
-                  <div key={key} className="flex items-center justify-between gap-3">
-                    <label className="text-xs text-white/50 flex-1">{label}</label>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="number"
-                        min={1}
-                        max={120}
-                        value={customDurations[key]}
-                        onChange={(e) => handleDurationChange(key, e.target.value)}
-                        className="w-14 px-2 py-1 text-xs text-white bg-white/5 border border-white/10 rounded-lg focus:border-violet-500/50 focus:outline-none text-center"
-                      />
-                      <span className="text-xs text-white/30">min</span>
-                    </div>
-                  </div>
+            {/* Controls */}
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={() => { setTimeLeft(duration); setRunning(false) }} className="p-2 rounded-xl hover:bg-white/10 text-white/40 hover:text-white/70">
+                <RotateCcw className="w-4 h-4" />
+              </button>
+              <button onClick={() => setRunning(v => !v)}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white transition-all"
+                style={{ background: color, boxShadow: `0 0 16px ${color}60` }}>
+                {running ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+              </button>
+              <div className="flex gap-1">
+                {[0,1,2,3].map(i => (
+                  <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: i < sessions % 4 ? color : 'rgba(255,255,255,0.15)' }} />
                 ))}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        </motion.div>
       </div>
-    </Widget>
+    </Draggable>
   )
 }
