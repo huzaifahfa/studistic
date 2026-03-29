@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@auth/core": "^0.37.2",
+    "@auth/firebase-adapter": "^2.11.1",
     "@google/generative-ai": "^0.21.0",
     "face-api.js": "^0.22.2",
     "fft-js": "^0.0.12",
