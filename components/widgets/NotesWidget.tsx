@@ -44,7 +44,7 @@ export default function NotesWidget({ onClose }: { onClose: () => void }) {
               onClick={onClose}
               style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: '1.1rem', letterSpacing: '0.05em', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              ···
+              ✕
             </button>
           </div>
 

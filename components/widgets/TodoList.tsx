@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Draggable from 'react-draggable'
 import { addCompletedTask, addTaskAdded } from '@/lib/studyStats'
@@ -9,10 +9,39 @@ const SALMON = '#c4826e'
 
 interface Todo { id: string; text: string; done: boolean }
 
+const TODOS_KEY = 'studistic_todos'
+
 export default function TodoList({ onClose, onTodosChange }: { onClose: () => void; onTodosChange?: (todos: string[]) => void }) {
   const [todos, setTodos] = useState<Todo[]>([])
   const [input, setInput] = useState('')
   const nodeRef = useRef<HTMLDivElement>(null)
+
+  // Load todos from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(TODOS_KEY)
+        if (saved) {
+          const parsedTodos = JSON.parse(saved)
+          setTodos(parsedTodos)
+          onTodosChange?.(parsedTodos.filter((t: Todo) => !t.done).map((t: Todo) => t.text))
+        }
+      } catch (error) {
+        console.error('Failed to load todos from localStorage:', error)
+      }
+    }
+  }, [])
+
+  // Save todos to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(TODOS_KEY, JSON.stringify(todos))
+      } catch (error) {
+        console.error('Failed to save todos to localStorage:', error)
+      }
+    }
+  }, [todos])
 
   const add = () => {
     const text = input.trim()
@@ -60,12 +89,17 @@ export default function TodoList({ onClose, onTodosChange }: { onClose: () => vo
             style={{ borderBottom: `2px solid ${SALMON}` }}
           >
             <span style={{ color: SALMON, fontWeight: 800, fontSize: '1.3rem' }}>Task</span>
-            <button
-              onClick={onClose}
-              style={{ color: SALMON, fontWeight: 700, fontSize: '1.1rem', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              ···
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ color: SALMON, fontWeight: 600, fontSize: '0.85rem' }}>
+                {todos.filter(t => t.done).length} completed
+              </span>
+              <button
+                onClick={onClose}
+                style={{ color: SALMON, fontWeight: 700, fontSize: '1.1rem', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Tasks list */}

@@ -22,11 +22,55 @@ export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
   const [timeLeft, setTimeLeft] = useState(MODES.pomodoro.duration)
   const [running, setRunning] = useState(false)
   const [sessions, setSessions] = useState(0)
+  const [alarmActive, setAlarmActive] = useState(false)
   const nodeRef = useRef<HTMLDivElement>(null)
+  const alarmIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const duration = mode === 'custom' ? customMinutes * 60 : MODES[mode].duration
   const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0')
   const secs = String(timeLeft % 60).padStart(2, '0')
+
+  const playAlarmSound = () => {
+    if (typeof window !== 'undefined' && !alarmActive) {
+      setAlarmActive(true)
+      const playBeep = () => {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+        const oscillator = audioContext.createOscillator()
+        const gainNode = audioContext.createGain()
+
+        oscillator.connect(gainNode)
+        gainNode.connect(audioContext.destination)
+
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1)
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2)
+
+        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
+
+        oscillator.start(audioContext.currentTime)
+        oscillator.stop(audioContext.currentTime + 0.5)
+      }
+
+      // Play initial beep
+      playBeep()
+
+      // Set up repeating alarm every 2 seconds
+      alarmIntervalRef.current = setInterval(() => {
+        playBeep()
+      }, 2000)
+    }
+  }
+
+  const stopAlarm = () => {
+    if (alarmIntervalRef.current) {
+      clearInterval(alarmIntervalRef.current)
+      alarmIntervalRef.current = null
+    }
+    setAlarmActive(false)
+    setTimeLeft(duration)
+    setRunning(false)
+  }
 
   useEffect(() => {
     if (!running) return
@@ -38,7 +82,9 @@ export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
             addStudyMinutes(Math.round(duration / 60))
             setSessions(s => s + 1)
           }
-          return duration
+          // Start continuous alarm instead of resetting
+          playAlarmSound()
+          return 0 // Keep at 0 to show timer finished
         }
         return prev - 1
       })
@@ -46,7 +92,20 @@ export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
     return () => clearInterval(t)
   }, [running, mode, duration])
 
+  // Cleanup alarm on unmount
+  useEffect(() => {
+    return () => {
+      if (alarmIntervalRef.current) {
+        clearInterval(alarmIntervalRef.current)
+      }
+    }
+  }, [])
+
   const switchMode = (m: ModeKey) => {
+    // Stop alarm if active
+    if (alarmActive) {
+      stopAlarm()
+    }
     setMode(m)
     setRunning(false)
     setShowCustomInput(m === 'custom')
@@ -85,7 +144,7 @@ export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
               onClick={onClose}
               style={{ color: OLIVE, fontWeight: 700, fontSize: '1.1rem', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              ···
+              ✕
             </button>
           </div>
 
@@ -151,14 +210,41 @@ export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
                 style={{
                   fontSize: '3.5rem',
                   fontWeight: 900,
-                  color: OLIVE,
+                  color: alarmActive ? '#ff4444' : OLIVE,
                   letterSpacing: '-0.02em',
                   lineHeight: 1,
+                  textShadow: alarmActive ? '0 0 10px rgba(255,68,68,0.5)' : 'none',
                 }}
               >
-                {mins}:{secs}
+                {alarmActive ? '00:00' : `${mins}:${secs}`}
               </span>
             </div>
+
+            {/* Alarm message and OK button */}
+            {alarmActive && (
+              <div className="text-center mb-4">
+                <p style={{ color: '#ff4444', fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+                  Time's up! 🎉
+                </p>
+                <button
+                  onClick={stopAlarm}
+                  style={{
+                    backgroundColor: '#ff4444',
+                    border: 'none',
+                    borderRadius: '9999px',
+                    padding: '0.5rem 1.5rem',
+                    color: '#fff',
+                    fontFamily: 'var(--font-nunito), sans-serif',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(255,68,68,0.3)',
+                  }}
+                >
+                  OK
+                </button>
+              </div>
+            )}
 
             {/* Session dots */}
             <div className="flex justify-center gap-1.5 mb-4">
@@ -178,7 +264,14 @@ export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
             {/* Controls */}
             <div className="flex justify-center gap-3">
               <button
-                onClick={() => { setTimeLeft(duration); setRunning(false) }}
+                onClick={() => {
+                  if (alarmActive) {
+                    stopAlarm()
+                  } else {
+                    setTimeLeft(duration)
+                    setRunning(false)
+                  }
+                }}
                 style={{
                   background: 'none',
                   border: `1.5px solid ${OLIVE}`,
@@ -191,12 +284,13 @@ export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
                   cursor: 'pointer',
                 }}
               >
-                Reset
+                {alarmActive ? 'Stop' : 'Reset'}
               </button>
               <button
                 onClick={() => setRunning(v => !v)}
+                disabled={alarmActive}
                 style={{
-                  backgroundColor: OLIVE,
+                  backgroundColor: alarmActive ? '#ccc' : OLIVE,
                   border: 'none',
                   borderRadius: '9999px',
                   padding: '0.4rem 1.8rem',
@@ -204,8 +298,8 @@ export default function PomodoroTimer({ onClose }: { onClose: () => void }) {
                   fontFamily: 'var(--font-nunito), sans-serif',
                   fontWeight: 700,
                   fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  boxShadow: `0 4px 12px ${OLIVE}55`,
+                  cursor: alarmActive ? 'not-allowed' : 'pointer',
+                  boxShadow: alarmActive ? 'none' : `0 4px 12px ${OLIVE}55`,
                 }}
               >
                 {running ? 'Pause' : 'Start'}
