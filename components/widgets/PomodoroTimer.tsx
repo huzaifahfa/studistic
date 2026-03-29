@@ -16,11 +16,13 @@ const MODES = {
 }
 type ModeKey = keyof typeof MODES
 
-export default function PomodoroTimer({ onClose, uid }: { onClose: () => void; uid?: string }) {
-  const [mode, setMode] = useState<ModeKey>('pomodoro')
-  const [customMinutes, setCustomMinutes] = useState(25)
-  const [showCustomInput, setShowCustomInput] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(MODES.pomodoro.duration)
+export default function PomodoroTimer({ onClose, uid, presetMinutes }: { onClose: () => void; uid?: string; presetMinutes?: number }) {
+  const initialMode: ModeKey = presetMinutes ? 'custom' : 'pomodoro'
+  const initialCustom = presetMinutes ?? 25
+  const [mode, setMode] = useState<ModeKey>(initialMode)
+  const [customMinutes, setCustomMinutes] = useState(initialCustom)
+  const [showCustomInput, setShowCustomInput] = useState(presetMinutes != null)
+  const [timeLeft, setTimeLeft] = useState(presetMinutes ? presetMinutes * 60 : MODES.pomodoro.duration)
   const [running, setRunning] = useState(false)
   const [sessions, setSessions] = useState(0)
   const [alarmActive, setAlarmActive] = useState(false)

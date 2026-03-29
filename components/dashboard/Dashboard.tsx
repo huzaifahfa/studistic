@@ -3,10 +3,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import type { Session } from 'next-auth'
-import { signIn, signOut } from 'next-auth/react'
+import { signIn, signOut, useSession } from 'next-auth/react'
 import {
   Home, Clock, Calendar, Volume2, ClipboardList, BookOpen,
-  Monitor, CalendarDays, LogOut, User, Play, Pause, Activity,
+  Monitor, CalendarDays, LogOut, User, Activity, Sparkles,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import CameraMonitor from '@/components/camera/CameraMonitor'
@@ -17,9 +17,10 @@ import TodoList from '@/components/widgets/TodoList'
 import SpotifyEmbed from '@/components/widgets/SpotifyEmbed'
 import NotesWidget from '@/components/widgets/NotesWidget'
 import SoundWidget from '@/components/widgets/SoundWidget'
+import StudyPlanWidget from '@/components/widgets/StudyPlanWidget'
 import BackgroundVideo from './BackgroundVideo'
 import type { VitalMetrics } from '@/hooks/useRPPG'
-import type { StudySuggestion } from '@/lib/gemini'
+import type { StudySuggestion, StudyPlan, StudyPlanItem } from '@/lib/gemini'
 import { upsertUser, saveBiometricReading } from '@/lib/db'
 import { syncFromFirestore } from '@/lib/studyStats'
 
@@ -61,6 +62,7 @@ const BACKGROUNDS: Record<string, { type: 'image' | 'gradient' | 'video'; value:
 
 export default function Dashboard({ session }: { session: Session | null }) {
   const router = useRouter()
+  const { data: liveSession } = useSession()
   const [bg, setBg] = useState('forest')
   const [showBgPicker, setShowBgPicker] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -72,13 +74,17 @@ export default function Dashboard({ session }: { session: Session | null }) {
     spotify: false,
     notes: false,
     sound: false,
+    studyPlan: false,
   })
   const [todos, setTodos] = useState<string[]>([])
   const [health, setHealth] = useState<VitalMetrics | null>(null)
   const [showHealth, setShowHealth] = useState(false)
   const [suggestion, setSuggestion] = useState<StudySuggestion | null>(null)
   const [showSuggestion, setShowSuggestion] = useState(false)
-  const [videoPaused, setVideoPaused] = useState(true)
+  const [videoPaused] = useState(false)
+  const [studyPlan, setStudyPlan] = useState<StudyPlan | null>(null)
+  const [studyPlanLoading, setStudyPlanLoading] = useState(false)
+  const [pomodoroPreset, setPomodoroPreset] = useState<number | undefined>(undefined)
   const videoRef = useRef<HTMLVideoElement>(null)
   const lastBiometricSave = useRef(0)
 
@@ -123,31 +129,66 @@ export default function Dashboard({ session }: { session: Session | null }) {
 
   const toggle = (k: keyof typeof widgets) => setWidgets(v => ({ ...v, [k]: !v[k] }))
 
+  const openStudyPlan = async () => {
+    setWidgets(v => ({ ...v, studyPlan: true }))
+    if (studyPlan) return // already loaded
+    setStudyPlanLoading(true)
+    try {
+      const res = await fetch('/api/gemini/study-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ metrics: health, todos }),
+      })
+      if (res.ok) setStudyPlan(await res.json())
+    } catch { /* silently fail */ }
+    setStudyPlanLoading(false)
+  }
+
+  const handleStudyPlanAccept = async (item: StudyPlanItem) => {
+    if (item.type === 'pomodoro' && item.pomodoroMinutes) {
+      setPomodoroPreset(item.pomodoroMinutes)
+      setWidgets(v => ({ ...v, pomodoro: true }))
+    } else if (item.type === 'calendar' && item.calendarEvent) {
+      const accessToken = liveSession?.accessToken ?? session?.accessToken
+      if (!accessToken) {
+        signIn('google')
+        return
+      }
+      const res = await fetch('/api/calendar/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.title,
+          description: item.description,
+          startTime: item.calendarEvent.startTime,
+          durationMinutes: item.calendarEvent.durationMinutes,
+          accessToken,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.error('[calendar/add]', err)
+      }
+    }
+    // tips just get acknowledged
+  }
+
   // Handle background changes
   const handleBgChange = (newBg: string) => {
     setBg(newBg)
     setShowBgPicker(false)
     
-    // Pause video if switching away from video background
     if (BACKGROUNDS[newBg].type !== 'video' && videoRef.current) {
       videoRef.current.pause()
-      setVideoPaused(true)
     }
   }
 
   // Effect to handle video playback when background changes
   useEffect(() => {
     if (bgData.type === 'video' && videoRef.current) {
-      if (videoPaused) {
-        videoRef.current.pause()
-      } else {
-        videoRef.current.play().catch(() => {
-          // Handle autoplay restrictions
-          setVideoPaused(true)
-        })
-      }
+      videoRef.current.play().catch(() => {/* autoplay blocked */})
     }
-  }, [bg, videoPaused, bgData.type])
+  }, [bg, bgData.type])
   // Upsert user profile + sync stats when session is established
   useEffect(() => {
     const uid = session?.user?.id
@@ -201,11 +242,20 @@ export default function Dashboard({ session }: { session: Session | null }) {
 
       {/* Floating widgets */}
       <AnimatePresence>
-        {widgets.pomodoro && <PomodoroTimer key="pomodoro" onClose={() => toggle('pomodoro')} uid={session?.user?.id} />}
+        {widgets.pomodoro && <PomodoroTimer key="pomodoro" onClose={() => { toggle('pomodoro'); setPomodoroPreset(undefined) }} uid={session?.user?.id} presetMinutes={pomodoroPreset} />}
         {widgets.todo && <TodoList key="todo" onClose={() => toggle('todo')} onTodosChange={setTodos} uid={session?.user?.id} />}
         {widgets.spotify && <SpotifyEmbed key="spotify" onClose={() => toggle('spotify')} />}
         {widgets.notes && <NotesWidget key="notes" onClose={() => toggle('notes')} />}
         {widgets.sound && <SoundWidget key="sound" onClose={() => toggle('sound')} />}
+        {widgets.studyPlan && (
+          <StudyPlanWidget
+            key="studyPlan"
+            onClose={() => toggle('studyPlan')}
+            plan={studyPlan}
+            loading={studyPlanLoading}
+            onAccept={handleStudyPlanAccept}
+          />
+        )}
       </AnimatePresence>
 
       {/* Background picker panel */}
@@ -281,7 +331,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
                         justifyContent: 'center',
                       }}
                     >
-                      <Play style={{ color: '#fff', width: 10, height: 10, marginLeft: '1px' }} />
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
                     </div>
                   )}
                 </button>
@@ -427,27 +477,26 @@ export default function Dashboard({ session }: { session: Session | null }) {
             <ToolBtn icon={Calendar} label="Calendar" active={false} onClick={() => window.open('https://calendar.google.com', '_blank')} />
                 <ToolBtn icon={Activity} label="Health" active={showHealth} onClick={() => health && setShowHealth(v => !v)} />
         <ToolBtn icon={Volume2} label="Sound" active={widgets.sound} onClick={() => toggle('sound')} />
-            <ToolBtn icon={ClipboardList} label="Tasks" active={widgets.todo} onClick={() => toggle('todo')} />
-            <ToolBtn icon={BookOpen} label="Notes" active={widgets.notes} onClick={() => toggle('notes')} />
-            <ToolBtn
-              icon={Monitor}
-              label="Background"
-              active={showBgPicker}
-              onClick={() => setShowBgPicker(v => !v)}
-              dataBgPicker
-            />
-            <ToolBtn
-              icon={() => (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-                </svg>
-              )}
-              label="Spotify"
-              active={widgets.spotify}
-              onClick={() => toggle('spotify')}
-            />
-          </div>
-        )}
+        <ToolBtn icon={ClipboardList} label="Tasks" active={widgets.todo} onClick={() => toggle('todo')} />
+        <ToolBtn icon={BookOpen} label="Notes" active={widgets.notes} onClick={() => toggle('notes')} />
+        <ToolBtn
+          icon={Monitor}
+          label="Background"
+          active={showBgPicker}
+          onClick={() => setShowBgPicker(v => !v)}
+          dataBgPicker
+        />
+        <ToolBtn
+          icon={() => (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+            </svg>
+          )}
+          label="Spotify"
+          active={widgets.spotify}
+          onClick={() => toggle('spotify')}
+        />
+        <ToolBtn icon={Sparkles} label="Study" active={widgets.studyPlan} onClick={openStudyPlan} />
       </div>
 
       {/* Top-right: camera + user menu */}
