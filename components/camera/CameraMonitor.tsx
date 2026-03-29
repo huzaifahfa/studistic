@@ -97,7 +97,9 @@ export default function CameraMonitor({ onMetricsUpdate, onDisable }: Props) {
           <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
             {/* Video preview */}
             <div className="relative">
-              <video ref={videoRef} autoPlay muted playsInline className="w-full object-cover" style={{ height: 120, transform: 'scaleX(-1)' }} />
+              <video ref={videoRef} autoPlay muted playsInline className="w-full object-cover" style={{ height: 150, transform: 'scaleX(-1)' }} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/image-frame.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill', pointerEvents: 'none' }} />
               {/* Scanning line */}
               {isProcessing && (
                 <motion.div
