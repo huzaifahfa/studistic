@@ -3,7 +3,7 @@ import { getAnalytics, isSupported } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCqIYKyEXA8bHin3bJCcimk64SQld2fAKI",
+  apiKey: process.env.FIREBASE_API_KEY,
   authDomain: "hackathon-sp26.firebaseapp.com",
   projectId: "hackathon-sp26",
   storageBucket: "hackathon-sp26.firebasestorage.app",
