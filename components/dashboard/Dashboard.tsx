@@ -18,6 +18,7 @@ import SpotifyEmbed from '@/components/widgets/SpotifyEmbed'
 import NotesWidget from '@/components/widgets/NotesWidget'
 import SoundWidget from '@/components/widgets/SoundWidget'
 import StudyPlanWidget from '@/components/widgets/StudyPlanWidget'
+import TimeWidget from '@/components/widgets/TimeWidget'
 import BackgroundVideo from './BackgroundVideo'
 import type { VitalMetrics } from '@/hooks/useRPPG'
 import type { StudySuggestion, StudyPlan, StudyPlanItem } from '@/lib/gemini'
@@ -453,32 +454,34 @@ export default function Dashboard({ session }: { session: Session | null }) {
         )}
       </div>
 
-      {/* Top-right: camera + user menu */}
-      <div style={{ position: 'absolute', top: 20, right: 24, zIndex: 40, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        {/* Camera toggle */}
-        <button
-          onClick={() => setCameraOn(v => !v)}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: '50%',
-            backgroundColor: cameraOn ? 'rgba(107,124,66,0.15)' : 'rgba(255,255,255,0.7)',
-            border: `2px solid ${cameraOn ? OLIVE : '#ccc'}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            backdropFilter: 'blur(10px)',
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={cameraOn ? OLIVE : '#999'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M23 7l-7 5 7 5V7z" />
-            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-          </svg>
-        </button>
+      {/* Top-right: camera + user menu + clock */}
+      <div style={{ position: 'absolute', top: 20, right: 24, zIndex: 40, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.75rem' }}>
+        {/* Top row: Camera + User menu */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {/* Camera toggle */}
+          <button
+            onClick={() => setCameraOn(v => !v)}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              backgroundColor: cameraOn ? 'rgba(107,124,66,0.15)' : 'rgba(255,255,255,0.7)',
+              border: `2px solid ${cameraOn ? OLIVE : '#ccc'}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={cameraOn ? OLIVE : '#999'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 7l-7 5 7 5V7z" />
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+            </svg>
+          </button>
 
-        {/* User menu */}
-        <div style={{ position: 'relative' }} data-user-menu>
+          {/* User menu */}
+          <div style={{ position: 'relative' }} data-user-menu>
           <button
             onClick={() => setShowUserMenu(v => !v)}
             style={{
@@ -565,6 +568,10 @@ export default function Dashboard({ session }: { session: Session | null }) {
             </div>
           )}
         </div>
+        </div>
+
+        {/* Time widget below camera and user menu */}
+        <TimeWidget />
       </div>
 
       {/* Camera monitor */}
