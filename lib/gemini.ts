@@ -50,31 +50,111 @@ export async function getSuggestion(
   }
 }
 
+export interface BusySlot { start: string; end: string; summary: string }
+
+/** Find the earliest free slot at or after `after` that fits `durationMs` before `before`. */
+function findFreeSlot(durationMs: number, after: Date, before: Date, busySlots: BusySlot[]): Date | null {
+  const sorted = busySlots
+    .map(s => ({ start: new Date(s.start), end: new Date(s.end) }))
+    .sort((a, b) => a.start.getTime() - b.start.getTime())
+
+  let cursor = new Date(after)
+
+  for (const busy of sorted) {
+    if (busy.end <= cursor) continue // already past this slot
+    if (busy.start >= new Date(cursor.getTime() + durationMs)) break // gap fits before this busy slot
+    // Overlap — push cursor to end of busy slot
+    cursor = new Date(Math.max(cursor.getTime(), busy.end.getTime()))
+  }
+
+  const fits = new Date(cursor.getTime() + durationMs) <= before
+  return fits ? cursor : null
+}
+
+/** Post-process: fix any calendar items that clash with busy slots or fall outside the window. */
+function sanitizePlan(plan: StudyPlan, busySlots: BusySlot[], winStart: Date, winEnd: Date): StudyPlan {
+  const items = plan.items.map(item => {
+    if (item.type !== 'calendar' || !item.calendarEvent) return item
+
+    const durationMs = item.calendarEvent.durationMinutes * 60_000
+    let start = new Date(item.calendarEvent.startTime)
+
+    // Clamp to window
+    if (start < winStart) start = new Date(winStart)
+    const end = new Date(start.getTime() + durationMs)
+
+    // Check for clash or overflow
+    const overflows = end > winEnd
+    const clashes = busySlots.some(b => {
+      const bs = new Date(b.start), be = new Date(b.end)
+      return start < be && end > bs
+    })
+
+    if (!overflows && !clashes) return item // already fine
+
+    // Try to find the next free slot
+    const free = findFreeSlot(durationMs, start, winEnd, busySlots)
+    if (!free) {
+      // No room — demote to a time-management tip
+      return {
+        ...item,
+        type: 'tip' as const,
+        category: 'time_management' as const,
+        calendarEvent: undefined,
+        description: item.description + ' (No free slot found in your window — try expanding it.)',
+      }
+    }
+
+    return { ...item, calendarEvent: { startTime: free.toISOString(), durationMinutes: item.calendarEvent.durationMinutes } }
+  })
+
+  return { ...plan, items }
+}
+
 export async function getStudyPlan(
   metrics: VitalMetrics | null,
   todos: string[],
+  busySlots: BusySlot[] = [],
+  windowStart?: string,
+  windowEnd?: string,
 ): Promise<StudyPlan> {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) return fallbackPlan(metrics, todos)
-
   const now = new Date()
-  const in1h = new Date(now.getTime() + 60 * 60000).toISOString()
+
+  // Clamp window to 07:00–23:00 local time — done here so sanitizePlan always has correct bounds
+  const earliest = new Date(now); earliest.setHours(7, 0, 0, 0)
+  const latest = new Date(now);   latest.setHours(23, 0, 0, 0)
+  const winStart = windowStart
+    ? new Date(Math.max(new Date(windowStart).getTime(), earliest.getTime()))
+    : (now > earliest ? now : earliest)
+  const winEnd = windowEnd
+    ? new Date(Math.min(new Date(windowEnd).getTime(), latest.getTime()))
+    : latest
+
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) return sanitizePlan(fallbackPlan(metrics, todos, windowStart), busySlots, winStart, winEnd)
+
+  const busyStr = busySlots.length
+    ? `Existing calendar events (avoid scheduling during these): ${busySlots.map(s => `"${s.summary}" ${s.start}–${s.end}`).join('; ')}.`
+    : 'No existing calendar events.'
 
   try {
     const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: MODEL })
     const prompt =
-      `Student data: stress=${metrics?.stressLevel ?? '?'}/100 fatigue=${metrics?.fatigueLevel ?? '?'}/100 hr=${metrics?.heartRate ?? '?'}bpm. Tasks: ${todos.join(',') || 'none'}. Now: ${in1h}.` +
+      `Student data: stress=${metrics?.stressLevel ?? '?'}/100 fatigue=${metrics?.fatigueLevel ?? '?'}/100 hr=${metrics?.heartRate ?? '?'}bpm. Tasks: ${todos.join(',') || 'none'}. Current time: ${now.toISOString()}.` +
+      ` Scheduling window: ${winStart.toISOString()} to ${winEnd.toISOString()} (only schedule within this range).` +
+      ` ${busyStr}` +
       ` Reply ONLY JSON no markdown: {"summary":"<1 sentence>","items":[` +
       `{"id":"1","type":"pomodoro","title":"<title>","description":"<1 sentence>","pomodoroMinutes":<15-50>},` +
-      `{"id":"2","type":"calendar","title":"<title>","description":"<1 sentence>","calendarEvent":{"startTime":"<ISO8601>","durationMinutes":<number>}},` +
+      `{"id":"2","type":"calendar","title":"<title>","description":"<1 sentence>","calendarEvent":{"startTime":"<ISO8601 within window>","durationMinutes":<number>}},` +
       `{"id":"3","type":"tip","category":"study","title":"<title>","description":"<1 sentence>"},` +
       `{"id":"4","type":"tip","category":"mental_health","title":"<title>","description":"<1 sentence>"},` +
       `{"id":"5","type":"tip","category":"time_management","title":"<title>","description":"<1 sentence>"}]}`
     const result = await model.generateContent(prompt)
-    return parseJSON<StudyPlan>(result.response.text())
+    const plan = parseJSON<StudyPlan>(result.response.text())
+    return sanitizePlan(plan, busySlots, winStart, winEnd)
   } catch (e) {
     console.error('[getStudyPlan]', e)
-    return fallbackPlan(metrics, todos)
+    return sanitizePlan(fallbackPlan(metrics, todos, windowStart), busySlots, winStart, winEnd)
   }
 }
 
@@ -86,10 +166,11 @@ function fallback(metrics: VitalMetrics): StudySuggestion {
   return { type: 'hydration', title: 'Stay Hydrated', description: 'Drink water to maintain peak cognitive performance.', urgency: 'low', actionLabel: 'Got It' }
 }
 
-function fallbackPlan(metrics: VitalMetrics | null, todos: string[]): StudyPlan {
+function fallbackPlan(metrics: VitalMetrics | null, todos: string[], windowStart?: string): StudyPlan {
   const now = new Date()
-  const in1h = new Date(now.getTime() + 60 * 60000).toISOString()
-  const in3h = new Date(now.getTime() + 3 * 60 * 60000).toISOString()
+  const base = windowStart ? new Date(windowStart) : now
+  const in1h = new Date(base.getTime() + 60 * 60000).toISOString()
+  const in3h = new Date(base.getTime() + 3 * 60 * 60000).toISOString()
   const stress = metrics?.stressLevel ?? 50
   const fatigue = metrics?.fatigueLevel ?? 50
   const pomMins = fatigue > 65 ? 20 : stress > 60 ? 25 : 35

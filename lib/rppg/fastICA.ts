@@ -65,7 +65,7 @@ export function fastICA(
   // numerical precision before taking the -1/2 power.
   D = abs(D) as number[];
 
-  const mu: number[] = mean(signals, 1) as number[];
+  const mu: number[] = mean(signals, 1) as unknown as number[];
   const centered: number[][] = [];
   for (let i = 0; i < signals.length; i++) {
     centered.push(signals[i].map((v) => v - mu[i]));

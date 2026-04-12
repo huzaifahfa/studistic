@@ -35,11 +35,32 @@ interface Props {
   plan: StudyPlan | null
   loading: boolean
   onAccept: (item: StudyPlanItem) => Promise<void>
+  onGenerate: (windowStart: string, windowEnd: string) => void
 }
 
-export default function StudyPlanWidget({ onClose, plan, loading, onAccept }: Props) {
+function toLocalTimeInput(date: Date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function timeInputToISO(timeStr: string): string {
+  const [h, m] = timeStr.split(':').map(Number)
+  const d = new Date()
+  d.setHours(h, m, 0, 0)
+  return d.toISOString()
+}
+
+export default function StudyPlanWidget({ onClose, plan, loading, onAccept, onGenerate }: Props) {
   const nodeRef = useRef<HTMLDivElement>(null)
   const [itemStates, setItemStates] = useState<Record<string, 'idle' | 'loading' | 'accepted' | 'denied'>>({})
+
+  // Default: from now (rounded to next 30 min) to 23:00
+  const defaultStart = () => {
+    const now = new Date()
+    now.setMinutes(now.getMinutes() < 30 ? 30 : 60, 0, 0)
+    return toLocalTimeInput(now)
+  }
+  const [winFrom, setWinFrom] = useState(defaultStart)
+  const [winTo, setWinTo] = useState('23:00')
 
   const handleAccept = async (item: StudyPlanItem) => {
     setItemStates(s => ({ ...s, [item.id]: 'loading' }))
@@ -97,13 +118,67 @@ export default function StudyPlanWidget({ onClose, plan, loading, onAccept }: Pr
                   borderTopColor: 'transparent',
                   animation: 'spin 0.8s linear infinite',
                 }} />
-                <p style={{ color: '#999', fontSize: '0.85rem', fontWeight: 600 }}>Analysing your data...</p>
+                <p style={{ color: '#999', fontSize: '0.85rem', fontWeight: 600 }}>Checking your calendar...</p>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               </div>
             )}
 
             {!loading && !plan && (
-              <p style={{ textAlign: 'center', color: '#ccc', fontSize: '0.85rem', padding: '2rem' }}>No plan generated yet.</p>
+              <div style={{ padding: '1.25rem' }}>
+                <p style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, marginBottom: '0.85rem', textAlign: 'center' }}>
+                  When do you want to work today?
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '0.68rem', fontWeight: 800, color: OLIVE, display: 'block', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>From</label>
+                    <input
+                      type="time"
+                      value={winFrom}
+                      min="07:00"
+                      max="23:00"
+                      onChange={e => setWinFrom(e.target.value)}
+                      style={{
+                        width: '100%', padding: '0.45rem 0.6rem',
+                        border: `1.5px solid ${OLIVE}`, borderRadius: '0.6rem',
+                        fontSize: '0.85rem', fontFamily: 'var(--font-nunito), sans-serif',
+                        color: '#333', outline: 'none',
+                      }}
+                    />
+                  </div>
+                  <span style={{ marginTop: '1.1rem', color: '#bbb', fontWeight: 700 }}>→</span>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '0.68rem', fontWeight: 800, color: OLIVE, display: 'block', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>To</label>
+                    <input
+                      type="time"
+                      value={winTo}
+                      min="07:00"
+                      max="23:00"
+                      onChange={e => setWinTo(e.target.value)}
+                      style={{
+                        width: '100%', padding: '0.45rem 0.6rem',
+                        border: `1.5px solid ${OLIVE}`, borderRadius: '0.6rem',
+                        fontSize: '0.85rem', fontFamily: 'var(--font-nunito), sans-serif',
+                        color: '#333', outline: 'none',
+                      }}
+                    />
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.7rem', color: '#bbb', textAlign: 'center', marginBottom: '1rem' }}>
+                  Schedules only between 7 AM – 11 PM · Avoids your existing events
+                </p>
+                <button
+                  onClick={() => onGenerate(timeInputToISO(winFrom), timeInputToISO(winTo))}
+                  style={{
+                    width: '100%', padding: '0.6rem',
+                    backgroundColor: OLIVE, color: '#fff',
+                    border: 'none', borderRadius: '0.75rem',
+                    fontWeight: 800, fontSize: '0.9rem',
+                    cursor: 'pointer', fontFamily: 'var(--font-nunito), sans-serif',
+                  }}
+                >
+                  Generate Plan
+                </button>
+              </div>
             )}
 
             {!loading && plan && (

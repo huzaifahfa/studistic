@@ -129,15 +129,26 @@ export default function Dashboard({ session }: { session: Session | null }) {
 
   const toggle = (k: keyof typeof widgets) => setWidgets(v => ({ ...v, [k]: !v[k] }))
 
-  const openStudyPlan = async () => {
+  const openStudyPlan = () => {
     setWidgets(v => ({ ...v, studyPlan: true }))
-    if (studyPlan) return // already loaded
+    // Don't auto-generate — let the user pick their time window first
+  }
+
+  const generateStudyPlan = async (windowStart: string, windowEnd: string) => {
     setStudyPlanLoading(true)
+    setStudyPlan(null)
     try {
+      const accessToken = liveSession?.accessToken ?? session?.accessToken
+      // Fetch busy slots from Google Calendar (silently skip if no auth)
+      let busySlots: { start: string; end: string; summary: string }[] = []
+      if (accessToken) {
+        const evRes = await fetch(`/api/calendar/events?accessToken=${encodeURIComponent(accessToken)}`)
+        if (evRes.ok) ({ events: busySlots } = await evRes.json())
+      }
       const res = await fetch('/api/gemini/study-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ metrics: health, todos }),
+        body: JSON.stringify({ metrics: health, todos, busySlots, windowStart, windowEnd }),
       })
       if (res.ok) setStudyPlan(await res.json())
     } catch { /* silently fail */ }
@@ -254,6 +265,7 @@ export default function Dashboard({ session }: { session: Session | null }) {
             plan={studyPlan}
             loading={studyPlanLoading}
             onAccept={handleStudyPlanAccept}
+            onGenerate={generateStudyPlan}
           />
         )}
       </AnimatePresence>

@@ -22,10 +22,11 @@ interface UseRPPGOptions {
 const BUFFER_SIZE = 128         // total frames kept (power-of-2 for FFT)
 const POS_WINDOW = 64           // sliding window inside POS
 const SLIDE_AMOUNT = 32         // how many frames to drop after each compute
-const SAMPLE_INTERVAL_MS = 66   // ~15 fps
+const SAMPLE_INTERVAL_MS = 66              // ~15 fps
+const SAMPLE_RATE = 1000 / SAMPLE_INTERVAL_MS  // Hz — passed to POS for correct FFT scaling
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type POSFn = (signal: any[], windowSize: number) => any[]
+type POSFn = (signal: any[], windowSize: number, sampleRate?: number) => any[]
 
 export function useRPPG({ videoRef, enabled = true }: UseRPPGOptions) {
   const [metrics, setMetrics] = useState<VitalMetrics | null>(null)
@@ -146,7 +147,7 @@ export function useRPPG({ videoRef, enabled = true }: UseRPPGOptions) {
       let oxygenSaturation = 0
 
       if (posRef.current) {
-        const result = posRef.current(signal, POS_WINDOW)
+        const result = posRef.current(signal, POS_WINDOW, SAMPLE_RATE)
         const bpm = result[2] as number
         const rr = result[3] as number
         const oSat = result[4] as number
