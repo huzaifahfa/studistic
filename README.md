@@ -171,7 +171,3 @@ hooks/
 ```
 
 ---
-
-## Team
-
-Built at HackPSU Spring 2026.
