@@ -1,7 +1,5 @@
 # StudiStic
 
-**HackPSU Spring 2026 Submission**
-
 StudiStic is an AI-powered study companion that monitors your health in real time using your webcam, and adapts your study environment accordingly. It combines biometric monitoring, ambient focus tools, task management, and Gemini AI to help you study smarter — not harder.
 
 ---
